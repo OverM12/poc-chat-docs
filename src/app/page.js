@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 import {
   Send,
   MessageCircle,
@@ -11,6 +12,9 @@ import {
   QrCode,
   CheckCircle,
   Building,
+  Phone,
+  Shield,
+  BarChart3,
 } from "lucide-react";
 
 const API_BASE_URL = "http://localhost:8000";
@@ -65,10 +69,40 @@ const generateQRCode = (text) => {
   });
 };
 
+// Generate a random userId for demo (in real app, use login/session)
+function getOrCreateUserId() {
+  if (typeof window === "undefined") return "";
+  let userId = localStorage.getItem("chat_user_id");
+  if (!userId) {
+    userId = "user_" + Math.random().toString(36).substring(2, 12);
+    localStorage.setItem("chat_user_id", userId);
+  }
+  return userId;
+}
+
+// Mock officer chat data
+const MOCK_OFFICER_RESPONSES = [
+  {
+    type: "officer",
+    content: "สวัสดีค่ะ/ครับ มีอะไรให้เจ้าหน้าที่ช่วยเหลือคะ?",
+    timestamp: new Date(),
+    officerName: "เจ้าหน้าที่สมชาย",
+  },
+  {
+    type: "officer",
+    content: "กรุณารอสักครู่ เจ้าหน้าที่กำลังตรวจสอบข้อมูลของคุณ",
+    timestamp: new Date(),
+    officerName: "เจ้าหน้าที่สมชาย",
+  },
+];
+
 export default function ChatBot() {
+  // --- State for user chat ---
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // --- State for queue booking ---
   const [showQueueModal, setShowQueueModal] = useState(false);
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -87,28 +121,214 @@ export default function ChatBot() {
   });
   const [qrCodeUrl, setQrCodeUrl] = useState("");
   const [bookedQueue, setBookedQueue] = useState(null);
-  const [smartBookingData, setSmartBookingData] = useState(null); // เก็บข้อมูลจาก response
+  const [smartBookingData, setSmartBookingData] = useState(null);
 
+  // --- User id for chat history ---
+  const [userId, setUserId] = useState("");
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
-  const scrollToBottom = () => {
+  // --- Officer chat state ---
+  const [isOfficerChat, setIsOfficerChat] = useState(false);
+  const [officerInput, setOfficerInput] = useState("");
+  const [isWaitingOfficer, setIsWaitingOfficer] = useState(false);
+
+  // --- Scroll to bottom on new message ---
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isOfficerChat]);
+
+  // --- On mount, get userId and load chat history ---
+  useEffect(() => {
+    const id = getOrCreateUserId();
+    setUserId(id);
+    fetchUserChatHistory(id);
+  }, []);
+
+  // --- Fetch user chat history from backend ---
+  const fetchUserChatHistory = async (uid) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/chat/history?user_id=${uid}`, {
+        method: "GET",
+        headers: {
+          "Accept": "application/json",
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMessages(
+          data.map((msg) => ({
+            ...msg,
+            timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date(),
+          }))
+        );
+      }
+    } catch (e) {
+      // fallback: do nothing
+    }
   };
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+  // --- Save user chat message to backend ---
+  const saveUserChatMessage = async (msg) => {
+    try {
+      await fetch(`${API_BASE_URL}/chat/save`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          ...msg,
+          timestamp: msg.timestamp.toISOString(),
+        }),
+        // mode: "cors", // Uncomment if needed
+      });
+    } catch (e) { }
+  };
 
+  // --- Send message to LLM and save history ---
+  const handleSendMessage = async (text = inputText) => {
+    if (!text.trim()) return;
+
+    const userMessage = {
+      type: "user",
+      content: text,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, userMessage]);
+    setInputText("");
+    setIsLoading(true);
+    saveUserChatMessage(userMessage);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/query`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+        body: JSON.stringify({ question: text, user_id: userId }),
+        // mode: "cors", // Uncomment if needed
+      });
+
+      if (!response.ok) {
+        throw new Error("Bad response from server");
+      }
+
+      const data = await response.json();
+
+      // เก็บข้อมูลบริการจาก response
+      const serviceInfo = data.relevant_documents?.[0];
+      if (serviceInfo) {
+        setSmartBookingData({
+          service_id: serviceInfo.service_id,
+          district_id: serviceInfo.district_id,
+          province_id: serviceInfo.province_id,
+          service_name: serviceInfo.service,
+          district_name: serviceInfo.district,
+          province_name: serviceInfo.province,
+        });
+      }
+
+      const botMessage = {
+        type: "bot",
+        content: data.answer,
+        timestamp: new Date(),
+        showQueueButton: !!serviceInfo,
+        showContactButton: true,
+        serviceInfo: serviceInfo,
+      };
+      setMessages((prev) => [...prev, botMessage]);
+      saveUserChatMessage(botMessage);
+    } catch (error) {
+      const errorMessage = {
+        type: "bot",
+        content:
+          "ขออภัย เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่อีกครั้ง หรือติดต่อเจ้าหน้าที่เพื่อขอความช่วยเหลือ",
+        timestamp: new Date(),
+        showContactButton: true,
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+      saveUserChatMessage(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // --- Officer chat logic ---
+  // When switching to officer chat, just change the profile and continue the conversation
+  const handleContactOfficer = () => {
+    setIsOfficerChat(true);
+    setIsWaitingOfficer(true);
+
+    // Convert all previous messages to officer chat format
+    // We'll keep the same messages, but change the profile color/icons in the UI
+    setTimeout(() => {
+      setIsWaitingOfficer(false);
+      // Optionally, add a system message or officer greeting
+      setMessages((prev) => [
+        ...prev,
+        {
+          type: "officer",
+          content: "สวัสดีค่ะ/ครับ มีอะไรให้เจ้าหน้าที่ช่วยเหลือคะ?",
+          timestamp: new Date(),
+          officerName: "เจ้าหน้าที่สมชาย",
+        },
+      ]);
+    }, 1000);
+  };
+
+  const handleSendOfficerMessage = (e) => {
+    e.preventDefault();
+    if (!officerInput.trim()) return;
+    const userMsg = {
+      type: "user",
+      content: officerInput,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, userMsg]);
+    setOfficerInput("");
+    setIsWaitingOfficer(true);
+
+    // Simulate officer reply after 2 seconds (mock)
+    setTimeout(() => {
+      // Pick a random mock reply or repeat the last
+      const mock =
+        MOCK_OFFICER_RESPONSES[
+          Math.floor(Math.random() * MOCK_OFFICER_RESPONSES.length)
+        ];
+      setMessages((prev) => [
+        ...prev,
+        {
+          ...mock,
+          timestamp: new Date(),
+        },
+      ]);
+      setIsWaitingOfficer(false);
+    }, 2000);
+  };
+
+  const handleBackToBot = () => {
+    setIsOfficerChat(false);
+    setOfficerInput("");
+    setIsWaitingOfficer(false);
+  };
+
+  // --- Queue booking logic ---
   const fetchDistricts = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/districts`);
+      const response = await fetch(`${API_BASE_URL}/districts`, {
+        method: "GET",
+        headers: {
+          "Accept": "application/json",
+        },
+      });
       const data = await response.json();
       setDistricts(
         data.filter((district) => district.province_name === "กรุงเทพมหานคร")
       );
     } catch (error) {
-      console.error("Error fetching districts:", error);
       setDistricts([]);
     }
   };
@@ -116,26 +336,35 @@ export default function ChatBot() {
   const fetchServices = async (districtId) => {
     try {
       const response = await fetch(
-        `${API_BASE_URL}/services?district_id=${districtId}`
+        `${API_BASE_URL}/services?district_id=${districtId}`,
+        {
+          method: "GET",
+          headers: {
+            "Accept": "application/json",
+          },
+        }
       );
       const data = await response.json();
       setServices(data);
     } catch (error) {
-      console.error("Error fetching services:", error);
       setServices([]);
     }
   };
 
   const fetchAvailableQueues = async (serviceId) => {
     try {
-      // Get today's date
       const today = new Date().toISOString().split("T")[0];
       const response = await fetch(
-        `${API_BASE_URL}/queue/bookings?service_id=${serviceId}&booking_date=${today}`
+        `${API_BASE_URL}/queue/bookings?service_id=${serviceId}&booking_date=${today}`,
+        {
+          method: "GET",
+          headers: {
+            "Accept": "application/json",
+          },
+        }
       );
       const existingQueues = await response.json();
 
-      // Generate available time slots (9:00 AM to 4:00 PM)
       const timeSlots = [];
       for (let hour = 9; hour <= 16; hour++) {
         for (let minute = 0; minute < 60; minute += 30) {
@@ -157,77 +386,19 @@ export default function ChatBot() {
       }
       setAvailableQueues(timeSlots);
     } catch (error) {
-      console.error("Error fetching available queues:", error);
       setAvailableQueues([]);
     }
   };
 
-  const handleSendMessage = async (text = inputText) => {
-    if (!text.trim()) return;
-
-    const userMessage = { type: "user", content: text, timestamp: new Date() };
-    setMessages((prev) => [...prev, userMessage]);
-    setInputText("");
-    setIsLoading(true);
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/query`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: text }),
-      });
-
-      const data = await response.json();
-      
-      // เก็บข้อมูลบริการจาก response
-      const serviceInfo = data.relevant_documents?.[0];
-      if (serviceInfo) {
-        setSmartBookingData({
-          service_id: serviceInfo.service_id,
-          district_id: serviceInfo.district_id,
-          province_id: serviceInfo.province_id,
-          service_name: serviceInfo.service,
-          district_name: serviceInfo.district,
-          province_name: serviceInfo.province
-        });
-      }
-
-      const botMessage = {
-        type: "bot",
-        content: data.answer,
-        timestamp: new Date(),
-        showQueueButton: !!serviceInfo, // แสดงปุ่มเมื่อมีข้อมูลบริการ
-        serviceInfo: serviceInfo // เก็บข้อมูลบริการใน message
-      };
-      setMessages((prev) => [...prev, botMessage]);
-    } catch (error) {
-      const errorMessage = {
-        type: "bot",
-        content: "ขออภัย เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่อีกครั้ง",
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // ฟังก์ชันจองคิวอัจฉริยะ - ใช้ข้อมูลจาก response โดยตรง
   const handleSmartQueueBooking = async () => {
     if (!smartBookingData) {
       alert("ไม่พบข้อมูลบริการ กรุณาถามเกี่ยวกับบริการที่ต้องการก่อน");
       return;
     }
-
-    // ตั้งค่าเขตและบริการจาก smartBookingData
     setSelectedDistrict(smartBookingData.district_id.toString());
     setSelectedService(smartBookingData.service_id.toString());
-    
-    // ดึงข้อมูลเขตและบริการ
     await fetchDistricts();
     await fetchServices(smartBookingData.district_id);
-    
-    // ดึงช่วงเวลาที่ว่างสำหรับบริการนี้
     await fetchAvailableQueues(smartBookingData.service_id);
     setShowQueueModal(true);
   };
@@ -263,29 +434,31 @@ export default function ChatBot() {
 
   const handleBookingSubmit = async (e) => {
     e.preventDefault();
-
     try {
-      // ใช้ข้อมูลที่เลือกจาก dropdown
       const serviceId = parseInt(selectedService);
-      
       if (!serviceId) {
         alert("กรุณาเลือกบริการ");
         return;
       }
-
       const bookingPayload = {
         ...bookingData,
         service_id: serviceId,
         booking_date: new Date().toISOString().split("T")[0],
         booking_time: selectedQueue.time,
+        user_id: userId,
       };
-
       const response = await fetch(`${API_BASE_URL}/queue/book`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
         body: JSON.stringify(bookingPayload),
+        // mode: "cors", // Uncomment if needed
       });
-
+      if (!response.ok) {
+        throw new Error("Bad response from server");
+      }
       const result = await response.json();
       setBookedQueue(result);
 
@@ -305,14 +478,12 @@ export default function ChatBot() {
       setShowBookingForm(false);
       setShowSuccessModal(true);
     } catch (error) {
-      console.error("Error booking queue:", error);
       alert("เกิดข้อผิดพลาดในการจองคิว กรุณาลองใหม่");
     }
   };
 
   const handleSuccessClose = () => {
     setShowSuccessModal(false);
-    // Reset form
     setBookingData({
       citizen_name: "",
       citizen_phone: "",
@@ -329,6 +500,7 @@ export default function ChatBot() {
     setShowQueueStatus(true);
   };
 
+  // --- Render ---
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 max-w-xl mx-auto">
       {/* Header */}
@@ -343,169 +515,288 @@ export default function ChatBot() {
               <p className="text-sm text-gray-600">กรุงเทพมหานคร</p>
             </div>
           </div>
-
-          <button
-            onClick={handleShowQueueStatus}
-            className="flex items-center space-x-2 bg-emerald-600 text-white px-4 py-2 rounded-xl hover:bg-emerald-700 transition-all duration-200 shadow-md hover:shadow-lg"
-          >
-            <QrCode className="w-4 h-4" />
-            <span className="font-medium">ตรวจสอบคิว</span>
-          </button>
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={handleShowQueueStatus}
+              className="flex items-center space-x-2 bg-emerald-600 text-white px-4 py-2 rounded-xl hover:bg-emerald-700 transition-all duration-200 shadow-md hover:shadow-lg"
+            >
+              <QrCode className="w-4 h-4" />
+              <span className="font-medium">ตรวจสอบคิว</span>
+            </button>
+            {/* <Link
+              href="/insights"
+              className="flex items-center space-x-2 bg-purple-600 text-white px-4 py-2 rounded-xl hover:bg-purple-700 transition-all duration-200 shadow-md hover:shadow-lg"
+            >
+              <BarChart3 className="w-4 h-4" />
+              <span className="font-medium">ข้อมูลเชิงลึก</span>
+            </Link> */}
+            {/* <Link
+              href="/officer"
+              className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition-all duration-200 shadow-md hover:shadow-lg"
+            >
+              <Shield className="w-4 h-4" />
+              <span className="font-medium">เจ้าหน้าที่</span>
+            </Link> */}
+          </div>
         </div>
       </header>
 
       {/* Main Chat Area */}
       <main className="max-w-4xl mx-auto px-4 py-6">
-        {messages.length === 0 ? (
-          /* Welcome Screen */
-          <div className="text-center py-16">
-            <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-lg max-w-2xl mx-auto">
-              <div className="w-24 h-24 bg-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
-                <Building className="w-12 h-12 text-white" />
-              </div>
-              <h2 className="text-4xl font-bold text-gray-800 mb-3">
-                กรุงเทพมหานคร
-              </h2>
-              <p className="text-gray-600 mb-8 text-lg">
-                ยินดีต้อนรับสู่ระบบบริการประชาชนออนไลน์
-              </p>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {SAMPLE_QUESTIONS.map((question, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleSendMessage(question)}
-                    className="p-4 rounded-xl shadow-sm border border-gray-200 hover:border-emerald-600 bg-white hover:shadow-md transition-all duration-200 text-left group"
-                  >
-                    <div className="flex items-start space-x-3">
-                      <MessageCircle className="w-5 h-5 text-emerald-600 mt-0.5 flex-shrink-0 group-hover:text-emerald-700 transition-colors" />
-                      <span className="text-gray-700 group-hover:text-gray-900 transition-colors">
-                        {question}
-                      </span>
-                    </div>
-                  </button>
-                ))}
+        {/* Unified chat area, just switch profile color/icon if isOfficerChat */}
+        <div className="space-y-6 mb-6">
+          {messages.length === 0 ? (
+            /* Welcome Screen */
+            <div className="text-center py-16">
+              <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-lg max-w-2xl mx-auto">
+                <div className="w-24 h-24 bg-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
+                  <Building className="w-12 h-12 text-white" />
+                </div>
+                <h2 className="text-4xl font-bold text-gray-800 mb-3">
+                  กรุงเทพมหานคร
+                </h2>
+                <p className="text-gray-600 mb-8 text-lg">
+                  ยินดีต้อนรับสู่ระบบบริการประชาชนออนไลน์
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {SAMPLE_QUESTIONS.map((question, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleSendMessage(question)}
+                      className="p-4 rounded-xl shadow-sm border border-gray-200 hover:border-emerald-600 bg-white hover:shadow-md transition-all duration-200 text-left group"
+                    >
+                      <div className="flex items-start space-x-3">
+                        <MessageCircle className="w-5 h-5 text-emerald-600 mt-0.5 flex-shrink-0 group-hover:text-emerald-700 transition-colors" />
+                        <span className="text-gray-700 group-hover:text-gray-900 transition-colors">
+                          {question}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
-        ) : (
-          /* Chat Messages */
-          <div className="space-y-6 mb-6">
-            {messages.map((message, index) => (
-              <div
-                key={index}
-                className={`flex ${
-                  message.type === "user" ? "justify-end" : "justify-start"
-                } animate-fadeIn`}
-              >
-                <div className="flex items-start space-x-3 max-w-3xl">
-                  {message.type === "bot" && (
-                    <div className="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-md">
+          ) : (
+            /* Chat Messages */
+            <>
+              {isOfficerChat && (
+                <div className="flex items-center mb-4">
+                  <button
+                    onClick={handleBackToBot}
+                    className="mr-2 p-2 rounded-full hover:bg-gray-100 transition"
+                    title="กลับไปคุยกับบอท"
+                  >
+                    <Shield className="w-5 h-5 text-blue-600" />
+                  </button>
+                  <span className="font-bold text-lg text-blue-700">แชทกับเจ้าหน้าที่</span>
+                </div>
+              )}
+              {messages.map((message, index) => {
+                // Determine profile color/icon based on isOfficerChat
+                let isUser = message.type === "user";
+                let isBot = message.type === "bot";
+                let isOfficer = message.type === "officer";
+                let isSystem = message.type === "system";
+                // In officer chat, bot messages become officer messages (profile color changes)
+                let leftProfile = null;
+                if (isOfficerChat) {
+                  if (!isUser) {
+                    leftProfile = (
+                      <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-md">
+                        <Shield className="w-5 h-5 text-white" />
+                      </div>
+                    );
+                  }
+                } else {
+                  if (isBot) {
+                    leftProfile = (
+                      <div className="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-md">
+                        <Building className="w-5 h-5 text-white" />
+                      </div>
+                    );
+                  }
+                }
+                return (
+                  <div
+                    key={index}
+                    className={`flex ${isUser ? "justify-end" : "justify-start"} animate-fadeIn`}
+                  >
+                    <div className="flex items-start space-x-3 max-w-3xl">
+                      {!isUser && leftProfile}
+                      <div
+                        className={`rounded-2xl px-5 py-4 shadow-md ${
+                          isUser
+                            ? isOfficerChat
+                              ? "bg-blue-600 text-white"
+                              : "bg-emerald-600 text-white"
+                            : isOfficerChat
+                              ? "bg-white text-gray-800 border border-blue-100"
+                              : "bg-white text-gray-800 border border-gray-100"
+                        }`}
+                      >
+                        <p className="whitespace-pre-wrap leading-relaxed">
+                          {message.content}
+                        </p>
+                        {/* แสดงข้อมูลบริการจาก response */}
+                        {message.serviceInfo && !isOfficerChat && (
+                          <div className="mt-4 p-3 bg-emerald-50 rounded-xl border border-emerald-200">
+                            <div className="text-sm text-emerald-800 space-y-1">
+                              <div className="flex items-center space-x-2">
+                                <MapPin className="w-4 h-4" />
+                                <span className="font-medium">{message.serviceInfo.service}</span>
+                              </div>
+                              <div className="text-emerald-600">
+                                {message.serviceInfo.district}, {message.serviceInfo.province}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        <div className="text-xs opacity-70 mt-3">
+                          {message.officerName && isOfficerChat && (
+                            <span className="mr-2 text-blue-700">{message.officerName}</span>
+                          )}
+                          {message.timestamp &&
+                            new Date(message.timestamp).toLocaleTimeString("th-TH", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                        </div>
+                        {!isOfficerChat && (
+                          <div className="flex justify-between">
+                            <div className="flex flex-row gap-3 mt-4">
+                              {message.showQueueButton && (
+                                <button
+                                  onClick={handleSmartQueueBooking}
+                                  className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl hover:bg-emerald-700 transition-all duration-200 flex items-center justify-center space-x-2 shadow-md hover:shadow-lg font-medium w-44"
+                                >
+                                  <Clock className="w-4 h-4" />
+                                  <span>จองคิวบริการนี้</span>
+                                </button>
+                              )}
+                              {message.showContactButton && (
+                                <button
+                                  type="button"
+                                  onClick={handleContactOfficer}
+                                  className="text-emerald-700 hover:text-white px-5 py-2.5 rounded-xl border-emerald-700 border-2 hover:bg-emerald-700 transition-all duration-200 flex items-center justify-center space-x-2 shadow-md hover:shadow-lg font-medium w-44"
+                                >
+                                  <Phone className="w-4 h-4" />
+                                  <span>ติดต่อเจ้าหน้าที่</span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      {isUser && (
+                        <div className="w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center flex-shrink-0 shadow-md">
+                          <User className="w-5 h-5 text-white" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              {isWaitingOfficer && isOfficerChat && (
+                <div className="flex justify-start animate-fadeIn">
+                  <div className="flex items-start space-x-3">
+                    <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center shadow-md">
+                      <Shield className="w-5 h-5 text-white" />
+                    </div>
+                    <div className="bg-white rounded-2xl px-5 py-4 shadow-md border border-blue-100">
+                      <div className="flex space-x-1">
+                        <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"></div>
+                        <div
+                          className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"
+                          style={{ animationDelay: "0.1s" }}
+                        ></div>
+                        <div
+                          className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"
+                          style={{ animationDelay: "0.2s" }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {isLoading && !isOfficerChat && (
+                <div className="flex justify-start animate-fadeIn">
+                  <div className="flex items-start space-x-3">
+                    <div className="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center shadow-md">
                       <Building className="w-5 h-5 text-white" />
                     </div>
-                  )}
-
-                  <div
-                    className={`rounded-2xl px-5 py-4 shadow-md ${
-                      message.type === "user"
-                        ? "bg-emerald-600 text-white"
-                        : "bg-white text-gray-800 border border-gray-100"
-                    }`}
-                  >
-                    <p className="whitespace-pre-wrap leading-relaxed">
-                      {message.content}
-                    </p>
-                    
-                    {/* แสดงข้อมูลบริการจาก response */}
-                    {message.serviceInfo && (
-                      <div className="mt-4 p-3 bg-emerald-50 rounded-xl border border-emerald-200">
-                        <div className="text-sm text-emerald-800 space-y-1">
-                          <div className="flex items-center space-x-2">
-                            <MapPin className="w-4 h-4" />
-                            <span className="font-medium">{message.serviceInfo.service}</span>
-                          </div>
-                          <div className="text-emerald-600">
-                            {message.serviceInfo.district}, {message.serviceInfo.province}
-                          </div>
-                        </div>
+                    <div className="bg-white rounded-2xl px-5 py-4 shadow-md border border-gray-100">
+                      <div className="flex space-x-1">
+                        <div className="w-2 h-2 bg-emerald-600 rounded-full animate-bounce"></div>
+                        <div
+                          className="w-2 h-2 bg-emerald-600 rounded-full animate-bounce"
+                          style={{ animationDelay: "0.1s" }}
+                        ></div>
+                        <div
+                          className="w-2 h-2 bg-emerald-600 rounded-full animate-bounce"
+                          style={{ animationDelay: "0.2s" }}
+                        ></div>
                       </div>
-                    )}
-
-                    <div className="text-xs opacity-70 mt-3">
-                      {message.timestamp.toLocaleTimeString("th-TH", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </div>
-
-                    {message.showQueueButton && (
-                      <button
-                        onClick={handleSmartQueueBooking}
-                        className="mt-4 bg-emerald-600 text-white px-5 py-2.5 rounded-xl hover:bg-emerald-700 transition-all duration-200 flex items-center space-x-2 shadow-md hover:shadow-lg font-medium"
-                      >
-                        <Clock className="w-4 h-4" />
-                        <span>จองคิวบริการนี้</span>
-                      </button>
-                    )}
-                  </div>
-
-                  {message.type === "user" && (
-                    <div className="w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center flex-shrink-0 shadow-md">
-                      <User className="w-5 h-5 text-white" />
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-
-            {isLoading && (
-              <div className="flex justify-start animate-fadeIn">
-                <div className="flex items-start space-x-3">
-                  <div className="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center shadow-md">
-                    <Building className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="bg-white rounded-2xl px-5 py-4 shadow-md border border-gray-100">
-                    <div className="flex space-x-1">
-                      <div className="w-2 h-2 bg-emerald-600 rounded-full animate-bounce"></div>
-                      <div
-                        className="w-2 h-2 bg-emerald-600 rounded-full animate-bounce"
-                        style={{ animationDelay: "0.1s" }}
-                      ></div>
-                      <div
-                        className="w-2 h-2 bg-emerald-600 rounded-full animate-bounce"
-                        style={{ animationDelay: "0.2s" }}
-                      ></div>
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-        )}
+              )}
+              <div ref={messagesEndRef} />
+            </>
+          )}
+        </div>
 
         {/* Input Area */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-lg border border-gray-200">
+        <div
+          className={
+            isOfficerChat
+              ? "bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-lg border border-blue-200"
+              : "bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-lg border border-gray-200"
+          }
+        >
           <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSendMessage();
-            }}
+            onSubmit={
+              isOfficerChat
+                ? handleSendOfficerMessage
+                : (e) => {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+            }
             className="flex space-x-4"
           >
             <input
-              ref={inputRef}
+              ref={!isOfficerChat ? inputRef : undefined}
               type="text"
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              placeholder="พิมพ์คำถามของคุณ..."
-              className="flex-1 px-5 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-transparent bg-white transition-all duration-200"
-              disabled={isLoading}
+              value={isOfficerChat ? officerInput : inputText}
+              onChange={(e) =>
+                isOfficerChat
+                  ? setOfficerInput(e.target.value)
+                  : setInputText(e.target.value)
+              }
+              placeholder={
+                isOfficerChat
+                  ? "พิมพ์ข้อความถึงเจ้าหน้าที่..."
+                  : "พิมพ์คำถามของคุณ..."
+              }
+              className={
+                isOfficerChat
+                  ? "flex-1 px-5 py-3 border border-blue-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent bg-white transition-all duration-200"
+                  : "flex-1 px-5 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-transparent bg-white transition-all duration-200"
+              }
+              disabled={isOfficerChat ? isWaitingOfficer : isLoading}
             />
             <button
               type="submit"
-              disabled={isLoading || !inputText.trim()}
-              className="bg-emerald-600 text-white px-6 py-3 rounded-xl hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center space-x-2 shadow-md hover:shadow-lg font-medium"
+              disabled={
+                isOfficerChat
+                  ? isWaitingOfficer || !officerInput.trim()
+                  : isLoading || !inputText.trim()
+              }
+              className={
+                isOfficerChat
+                  ? "bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center space-x-2 shadow-md hover:shadow-lg font-medium"
+                  : "bg-emerald-600 text-white px-6 py-3 rounded-xl hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center space-x-2 shadow-md hover:shadow-lg font-medium"
+              }
             >
               <Send className="w-4 h-4" />
               <span>ส่ง</span>
@@ -519,9 +810,7 @@ export default function ChatBot() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-gray-800">
-                จองคิว
-              </h3>
+              <h3 className="text-xl font-bold text-gray-800">จองคิว</h3>
               <button
                 onClick={() => setShowQueueModal(false)}
                 className="p-1 hover:bg-gray-100 rounded-full transition-colors"
@@ -529,30 +818,35 @@ export default function ChatBot() {
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
-
             {smartBookingData ? (
-              /* แสดงข้อมูลบริการที่เลือกจาก AI พร้อมให้เลือกเขตและบริการ */
               <div className="space-y-5">
                 <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-200">
                   <div className="text-sm text-emerald-800 space-y-2">
                     <div className="text-center mb-2">
-                      <span className="font-semibold">บริการที่แนะนำสำหรับคุณ</span>
+                      <span className="font-semibold">
+                        บริการที่แนะนำสำหรับคุณ
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span>บริการ:</span>
-                      <span className="font-semibold">{smartBookingData.service_name}</span>
+                      <span className="font-semibold">
+                        {smartBookingData.service_name}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span>เขต:</span>
-                      <span className="font-semibold">{smartBookingData.district_name}</span>
+                      <span className="font-semibold">
+                        {smartBookingData.district_name}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span>จังหวัด:</span>
-                      <span className="font-semibold">{smartBookingData.province_name}</span>
+                      <span className="font-semibold">
+                        {smartBookingData.province_name}
+                      </span>
                     </div>
                   </div>
                 </div>
-
                 {/* District Selection */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -571,7 +865,6 @@ export default function ChatBot() {
                     ))}
                   </select>
                 </div>
-
                 {/* Service Selection */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -591,7 +884,6 @@ export default function ChatBot() {
                     ))}
                   </select>
                 </div>
-
                 {/* Available Time Slots */}
                 {availableQueues.length > 0 ? (
                   <div>
@@ -626,7 +918,6 @@ export default function ChatBot() {
                 )}
               </div>
             ) : (
-              /* แสดงการเลือกเขตและบริการแบบเดิม */
               <div className="space-y-5">
                 {/* District Selection */}
                 <div>
@@ -646,7 +937,6 @@ export default function ChatBot() {
                     ))}
                   </select>
                 </div>
-
                 {/* Service Selection */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -666,7 +956,6 @@ export default function ChatBot() {
                     ))}
                   </select>
                 </div>
-
                 {/* Available Time Slots */}
                 {availableQueues.length > 0 && (
                   <div>
@@ -707,7 +996,6 @@ export default function ChatBot() {
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
-
             <form onSubmit={handleBookingSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -726,7 +1014,6 @@ export default function ChatBot() {
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 transition-all duration-200"
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   เบอร์โทรศัพท์ *
@@ -744,7 +1031,6 @@ export default function ChatBot() {
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 transition-all duration-200"
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   อีเมล
@@ -761,7 +1047,6 @@ export default function ChatBot() {
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 transition-all duration-200"
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   หมายเหตุ
@@ -775,7 +1060,6 @@ export default function ChatBot() {
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 transition-all duration-200"
                 />
               </div>
-
               <div className="bg-gray-50 p-4 rounded-xl border">
                 <div className="text-sm text-gray-600 space-y-1">
                   <div className="flex justify-between">
@@ -808,7 +1092,6 @@ export default function ChatBot() {
                   )}
                 </div>
               </div>
-
               <div className="flex space-x-3 pt-2">
                 <button
                   type="button"
@@ -841,7 +1124,6 @@ export default function ChatBot() {
                 จองคิวสำเร็จ!
               </h3>
               <p className="text-gray-600 mb-6">คุณได้รับหมายเลขคิว</p>
-
               <div className="bg-gray-50 p-5 rounded-xl mb-6 border">
                 <div className="text-3xl font-bold text-emerald-600 mb-3">
                   {bookedQueue.queue_number}
@@ -881,7 +1163,6 @@ export default function ChatBot() {
                   </div>
                 </div>
               </div>
-
               {qrCodeUrl && (
                 <div className="mb-6">
                   <img
@@ -894,7 +1175,6 @@ export default function ChatBot() {
                   </p>
                 </div>
               )}
-
               <button
                 onClick={handleSuccessClose}
                 className="w-full bg-emerald-600 text-white px-4 py-3 rounded-xl hover:bg-emerald-700 transition-all duration-200 shadow-md hover:shadow-lg font-medium"
@@ -921,7 +1201,6 @@ export default function ChatBot() {
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
-
             <div className="text-center">
               <div className="bg-gray-50 p-5 rounded-xl mb-6 border">
                 <div className="text-3xl font-bold text-emerald-600 mb-3">
@@ -969,23 +1248,22 @@ export default function ChatBot() {
                   <div className="flex justify-between items-center mt-3 pt-2 border-t">
                     <span>สถานะ:</span>
                     <span
-                      className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
-                        bookedQueue.status === "pending"
-                          ? "bg-yellow-100 text-yellow-800"
-                          : bookedQueue.status === "confirmed"
+                      className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${bookedQueue.status === "pending"
+                        ? "bg-yellow-100 text-yellow-800"
+                        : bookedQueue.status === "confirmed"
                           ? "bg-green-100 text-green-800"
                           : bookedQueue.status === "completed"
-                          ? "bg-blue-100 text-blue-800"
-                          : "bg-red-100 text-red-800"
-                      }`}
+                            ? "bg-blue-100 text-blue-800"
+                            : "bg-red-100 text-red-800"
+                        }`}
                     >
                       {bookedQueue.status === "pending"
                         ? "รอดำเนินการ"
                         : bookedQueue.status === "confirmed"
-                        ? "ยืนยันแล้ว"
-                        : bookedQueue.status === "completed"
-                        ? "เสร็จสิ้น"
-                        : "ยกเลิก"}
+                          ? "ยืนยันแล้ว"
+                          : bookedQueue.status === "completed"
+                            ? "เสร็จสิ้น"
+                            : "ยกเลิก"}
                     </span>
                   </div>
                   {bookedQueue.notes && (
@@ -998,7 +1276,6 @@ export default function ChatBot() {
                   )}
                 </div>
               </div>
-
               {qrCodeUrl && (
                 <div className="mb-6">
                   <img
@@ -1011,7 +1288,6 @@ export default function ChatBot() {
                   </p>
                 </div>
               )}
-
               <button
                 onClick={() => setShowQueueStatus(false)}
                 className="w-full bg-emerald-600 text-white px-4 py-3 rounded-xl hover:bg-emerald-700 transition-all duration-200 shadow-md hover:shadow-lg font-medium"
@@ -1022,7 +1298,6 @@ export default function ChatBot() {
           </div>
         </div>
       )}
-
     </div>
   );
 }
