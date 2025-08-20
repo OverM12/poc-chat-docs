@@ -314,6 +314,7 @@ export default function OfficerPage() {
             >
               <div className="flex items-center justify-center space-x-2">
                 <Building className="w-5 h-5" />
+                {/* <Image src="/bk-logo.png" alt="logo" width={24} height={24} /> */}
                 <span>จัดการคิว</span>
               </div>
             </button>

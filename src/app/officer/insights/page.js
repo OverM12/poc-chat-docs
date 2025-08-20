@@ -19,7 +19,7 @@ import {
   PieChart,
   LineChart,
 } from "lucide-react";
-
+import Image from "next/image";
 export default function InsightsPage() {
   const [activeTab, setActiveTab] = useState("peak-hours");
 
@@ -194,8 +194,9 @@ export default function InsightsPage() {
             </Link>
           </div>
           <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-emerald-600 rounded-full flex items-center justify-center shadow-md">
-              <BarChart3 className="w-6 h-6 text-white" />
+            <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-md">
+              {/* <BarChart3 className="w-6 h-6 text-white" /> */}
+              <Image src="/bk-logo.png" alt="logo" width={500} height={500} />
             </div>
             <div>
               <h1 className="text-xl font-bold text-gray-800">ข้อมูลเชิงลึก</h1>

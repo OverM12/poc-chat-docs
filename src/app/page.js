@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import {
   Send,
@@ -507,8 +508,9 @@ export default function ChatBot() {
       <header className="bg-white shadow-lg border-b border-gray-200">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-emerald-600 rounded-full flex items-center justify-center shadow-md">
-              <Building className="w-6 h-6 text-white" />
+            <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-md">
+              {/* <Building className="w-6 h-6 text-white" /> */}
+              <Image src="/bk-logo.png" alt="logo" width={500} height={500} />
             </div>
             <div>
               <h1 className="text-xl font-bold text-gray-800">บริการประชาชน</h1>
@@ -549,8 +551,9 @@ export default function ChatBot() {
             /* Welcome Screen */
             <div className="text-center py-16">
               <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-lg max-w-2xl mx-auto">
-                <div className="w-24 h-24 bg-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
-                  <Building className="w-12 h-12 text-white" />
+                <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
+                  {/* <Building className="w-12 h-12 text-white" /> */}
+                  <Image src="/bk-logo.png" alt="logo" width={500} height={500} />
                 </div>
                 <h2 className="text-4xl font-bold text-gray-800 mb-3">
                   กรุงเทพมหานคร
