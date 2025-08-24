@@ -20,6 +20,17 @@ import {
 
 const API_BASE_URL = "http://localhost:8000";
 
+const PRIMARY_COLOR = "#4393d9";
+const PRIMARY_COLOR_DARK = "#2d5aa0";
+const PRIMARY_COLOR_LIGHT = "#e8f2ff";
+const PRIMARY_COLOR_TEXT = "text-[#4393d9]";
+const PRIMARY_COLOR_BG = "bg-[#4393d9]";
+const PRIMARY_COLOR_BORDER = "border-[#4393d9]";
+const PRIMARY_COLOR_HOVER_BG = "hover:bg-[#2d5aa0]";
+const PRIMARY_COLOR_HOVER_TEXT = "hover:text-white";
+const PRIMARY_COLOR_RING = "focus:ring-[#4393d9]";
+const PRIMARY_COLOR_HOVER_BORDER = "hover:border-[#4393d9]";
+
 const SAMPLE_QUESTIONS = [
   "วิธีสมัครทะเบียนราษฎร",
   "ขั้นตอนการขอใบอนุญาตประกอบธุรกิจ",
@@ -36,7 +47,7 @@ const generateQRCode = (text) => {
     canvas.height = 200;
 
     // Simple QR-like pattern (for demo purposes)
-    ctx.fillStyle = "#047857";
+    ctx.fillStyle = PRIMARY_COLOR;
     ctx.fillRect(0, 0, 200, 200);
     ctx.fillStyle = "#FFFFFF";
 
@@ -51,7 +62,7 @@ const generateQRCode = (text) => {
     }
 
     // Add corner squares
-    ctx.fillStyle = "#047857";
+    ctx.fillStyle = PRIMARY_COLOR;
     ctx.fillRect(0, 0, 60, 60);
     ctx.fillRect(140, 0, 60, 60);
     ctx.fillRect(0, 140, 60, 60);
@@ -61,7 +72,7 @@ const generateQRCode = (text) => {
     ctx.fillRect(150, 10, 40, 40);
     ctx.fillRect(10, 150, 40, 40);
 
-    ctx.fillStyle = "#047857";
+    ctx.fillStyle = PRIMARY_COLOR;
     ctx.fillRect(20, 20, 20, 20);
     ctx.fillRect(160, 20, 20, 20);
     ctx.fillRect(20, 160, 20, 20);
@@ -503,7 +514,7 @@ export default function ChatBot() {
 
   // --- Render ---
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 max-w-xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-[#eaf4fb] to-[#b8d8ef] max-w-xl mx-auto">
       {/* Header */}
       <header className="bg-white shadow-lg border-b border-gray-200">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
@@ -520,7 +531,8 @@ export default function ChatBot() {
           <div className="flex items-center space-x-3">
             <button
               onClick={handleShowQueueStatus}
-              className="flex items-center space-x-2 bg-emerald-600 text-white px-4 py-2 rounded-xl hover:bg-emerald-700 transition-all duration-200 shadow-md hover:shadow-lg"
+              className={`flex items-center space-x-2 ${PRIMARY_COLOR_BG} text-white px-4 py-2 rounded-xl ${PRIMARY_COLOR_HOVER_BG} transition-all duration-200 shadow-md hover:shadow-lg`}
+              style={{ backgroundColor: PRIMARY_COLOR }}
             >
               <QrCode className="w-4 h-4" />
               <span className="font-medium">ตรวจสอบคิว</span>
@@ -566,10 +578,10 @@ export default function ChatBot() {
                     <button
                       key={index}
                       onClick={() => handleSendMessage(question)}
-                      className="p-4 rounded-xl shadow-sm border border-gray-200 hover:border-emerald-600 bg-white hover:shadow-md transition-all duration-200 text-left group"
+                      className={`p-4 rounded-xl shadow-sm border border-gray-200 ${PRIMARY_COLOR_HOVER_BORDER} bg-white hover:shadow-md transition-all duration-200 text-left group`}
                     >
                       <div className="flex items-start space-x-3">
-                        <MessageCircle className="w-5 h-5 text-emerald-600 mt-0.5 flex-shrink-0 group-hover:text-emerald-700 transition-colors" />
+                        <MessageCircle className={`w-5 h-5 ${PRIMARY_COLOR_TEXT} mt-0.5 flex-shrink-0 group-hover:text-[#4682b4] transition-colors`} />
                         <span className="text-gray-700 group-hover:text-gray-900 transition-colors">
                           {question}
                         </span>
@@ -589,9 +601,9 @@ export default function ChatBot() {
                     className="mr-2 p-2 rounded-full hover:bg-gray-100 transition"
                     title="กลับไปคุยกับบอท"
                   >
-                    <Shield className="w-5 h-5 text-blue-600" />
+                    <Shield className="w-5 h-5" style={{ color: PRIMARY_COLOR }} />
                   </button>
-                  <span className="font-bold text-lg text-blue-700">แชทกับเจ้าหน้าที่</span>
+                  <span className={`font-bold text-lg`} style={{ color: PRIMARY_COLOR }}>แชทกับเจ้าหน้าที่</span>
                 </div>
               )}
               {messages.map((message, index) => {
@@ -605,7 +617,7 @@ export default function ChatBot() {
                 if (isOfficerChat) {
                   if (!isUser) {
                     leftProfile = (
-                      <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-md">
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 shadow-md" style={{ backgroundColor: PRIMARY_COLOR }}>
                         <Shield className="w-5 h-5 text-white" />
                       </div>
                     );
@@ -613,7 +625,7 @@ export default function ChatBot() {
                 } else {
                   if (isBot) {
                     leftProfile = (
-                      <div className="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-md">
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 shadow-md" style={{ backgroundColor: PRIMARY_COLOR }}>
                         <Building className="w-5 h-5 text-white" />
                       </div>
                     );
@@ -630,25 +642,33 @@ export default function ChatBot() {
                         className={`rounded-2xl px-5 py-4 shadow-md ${
                           isUser
                             ? isOfficerChat
-                              ? "bg-blue-600 text-white"
-                              : "bg-emerald-600 text-white"
+                              ? `${PRIMARY_COLOR_BG} text-white`
+                              : `${PRIMARY_COLOR_BG} text-white`
                             : isOfficerChat
-                              ? "bg-white text-gray-800 border border-blue-100"
+                              ? "bg-white text-gray-800 border"
+                                + " border-[#b8d8ef]"
                               : "bg-white text-gray-800 border border-gray-100"
                         }`}
+                        style={
+                          isUser
+                            ? { backgroundColor: PRIMARY_COLOR }
+                            : isOfficerChat && !isUser
+                              ? { borderColor: "#b8d8ef" }
+                              : undefined
+                        }
                       >
                         <p className="whitespace-pre-wrap leading-relaxed">
                           {message.content}
                         </p>
                         {/* แสดงข้อมูลบริการจาก response */}
                         {message.serviceInfo && !isOfficerChat && (
-                          <div className="mt-4 p-3 bg-emerald-50 rounded-xl border border-emerald-200">
-                            <div className="text-sm text-emerald-800 space-y-1">
+                          <div className="mt-4 p-3 rounded-xl border" style={{ backgroundColor: PRIMARY_COLOR_LIGHT, borderColor: PRIMARY_COLOR }}>
+                            <div className="text-sm" style={{ color: PRIMARY_COLOR }}>
                               <div className="flex items-center space-x-2">
                                 <MapPin className="w-4 h-4" />
                                 <span className="font-medium">{message.serviceInfo.service}</span>
                               </div>
-                              <div className="text-emerald-600">
+                              <div style={{ color: PRIMARY_COLOR }}>
                                 {message.serviceInfo.district}, {message.serviceInfo.province}
                               </div>
                             </div>
@@ -656,7 +676,7 @@ export default function ChatBot() {
                         )}
                         <div className="text-xs opacity-70 mt-3">
                           {message.officerName && isOfficerChat && (
-                            <span className="mr-2 text-blue-700">{message.officerName}</span>
+                            <span className="mr-2" style={{ color: PRIMARY_COLOR }}>{message.officerName}</span>
                           )}
                           {message.timestamp &&
                             new Date(message.timestamp).toLocaleTimeString("th-TH", {
@@ -670,7 +690,11 @@ export default function ChatBot() {
                               {message.showQueueButton && (
                                 <button
                                   onClick={handleSmartQueueBooking}
-                                  className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl hover:bg-emerald-700 transition-all duration-200 flex items-center justify-center space-x-2 shadow-md hover:shadow-lg font-medium w-44"
+                                  className={`text-white px-5 py-2.5 rounded-xl transition-all duration-200 flex items-center justify-center space-x-2 shadow-md hover:shadow-lg font-medium w-44`}
+                                  style={{
+                                    backgroundColor: PRIMARY_COLOR,
+                                    border: "none",
+                                  }}
                                 >
                                   <Clock className="w-4 h-4" />
                                   <span>จองคิวบริการนี้</span>
@@ -680,7 +704,19 @@ export default function ChatBot() {
                                 <button
                                   type="button"
                                   onClick={handleContactOfficer}
-                                  className="text-emerald-700 hover:text-white px-5 py-2.5 rounded-xl border-emerald-700 border-2 hover:bg-emerald-700 transition-all duration-200 flex items-center justify-center space-x-2 shadow-md hover:shadow-lg font-medium w-44"
+                                  className={`px-5 py-2.5 rounded-xl border-2 transition-all duration-200 flex items-center justify-center space-x-2 shadow-md hover:shadow-lg font-medium w-44`}
+                                  style={{
+                                    color: PRIMARY_COLOR,
+                                    borderColor: PRIMARY_COLOR,
+                                  }}
+                                  onMouseOver={e => {
+                                    e.currentTarget.style.backgroundColor = PRIMARY_COLOR;
+                                    e.currentTarget.style.color = "#fff";
+                                  }}
+                                  onMouseOut={e => {
+                                    e.currentTarget.style.backgroundColor = "";
+                                    e.currentTarget.style.color = PRIMARY_COLOR;
+                                  }}
                                 >
                                   <Phone className="w-4 h-4" />
                                   <span>ติดต่อเจ้าหน้าที่</span>
@@ -702,19 +738,19 @@ export default function ChatBot() {
               {isWaitingOfficer && isOfficerChat && (
                 <div className="flex justify-start animate-fadeIn">
                   <div className="flex items-start space-x-3">
-                    <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center shadow-md">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center shadow-md" style={{ backgroundColor: PRIMARY_COLOR }}>
                       <Shield className="w-5 h-5 text-white" />
                     </div>
-                    <div className="bg-white rounded-2xl px-5 py-4 shadow-md border border-blue-100">
+                    <div className="bg-white rounded-2xl px-5 py-4 shadow-md border" style={{ borderColor: "#b8d8ef" }}>
                       <div className="flex space-x-1">
-                        <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"></div>
+                        <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: PRIMARY_COLOR }}></div>
                         <div
-                          className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"
-                          style={{ animationDelay: "0.1s" }}
+                          className="w-2 h-2 rounded-full animate-bounce"
+                          style={{ backgroundColor: PRIMARY_COLOR, animationDelay: "0.1s" }}
                         ></div>
                         <div
-                          className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"
-                          style={{ animationDelay: "0.2s" }}
+                          className="w-2 h-2 rounded-full animate-bounce"
+                          style={{ backgroundColor: PRIMARY_COLOR, animationDelay: "0.2s" }}
                         ></div>
                       </div>
                     </div>
@@ -724,19 +760,19 @@ export default function ChatBot() {
               {isLoading && !isOfficerChat && (
                 <div className="flex justify-start animate-fadeIn">
                   <div className="flex items-start space-x-3">
-                    <div className="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center shadow-md">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center shadow-md" style={{ backgroundColor: PRIMARY_COLOR }}>
                       <Building className="w-5 h-5 text-white" />
                     </div>
                     <div className="bg-white rounded-2xl px-5 py-4 shadow-md border border-gray-100">
                       <div className="flex space-x-1">
-                        <div className="w-2 h-2 bg-emerald-600 rounded-full animate-bounce"></div>
+                        <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: PRIMARY_COLOR }}></div>
                         <div
-                          className="w-2 h-2 bg-emerald-600 rounded-full animate-bounce"
-                          style={{ animationDelay: "0.1s" }}
+                          className="w-2 h-2 rounded-full animate-bounce"
+                          style={{ backgroundColor: PRIMARY_COLOR, animationDelay: "0.1s" }}
                         ></div>
                         <div
-                          className="w-2 h-2 bg-emerald-600 rounded-full animate-bounce"
-                          style={{ animationDelay: "0.2s" }}
+                          className="w-2 h-2 rounded-full animate-bounce"
+                          style={{ backgroundColor: PRIMARY_COLOR, animationDelay: "0.2s" }}
                         ></div>
                       </div>
                     </div>
@@ -752,9 +788,10 @@ export default function ChatBot() {
         <div
           className={
             isOfficerChat
-              ? "bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-lg border border-blue-200"
+              ? "bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-lg border"
               : "bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-lg border border-gray-200"
           }
+          style={isOfficerChat ? { borderColor: "#b8d8ef" } : undefined}
         >
           <form
             onSubmit={
@@ -783,9 +820,10 @@ export default function ChatBot() {
               }
               className={
                 isOfficerChat
-                  ? "flex-1 px-5 py-3 border border-blue-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent bg-white transition-all duration-200"
-                  : "flex-1 px-5 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-transparent bg-white transition-all duration-200"
+                  ? `flex-1 px-5 py-3 border rounded-xl focus:outline-none focus:ring-2 ${PRIMARY_COLOR_RING} focus:border-transparent bg-white transition-all duration-200`
+                  : `flex-1 px-5 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 ${PRIMARY_COLOR_RING} focus:border-transparent bg-white transition-all duration-200`
               }
+              style={isOfficerChat ? { borderColor: "#b8d8ef" } : undefined}
               disabled={isOfficerChat ? isWaitingOfficer : isLoading}
             />
             <button
@@ -795,11 +833,18 @@ export default function ChatBot() {
                   ? isWaitingOfficer || !officerInput.trim()
                   : isLoading || !inputText.trim()
               }
-              className={
-                isOfficerChat
-                  ? "bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center space-x-2 shadow-md hover:shadow-lg font-medium"
-                  : "bg-emerald-600 text-white px-6 py-3 rounded-xl hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center space-x-2 shadow-md hover:shadow-lg font-medium"
-              }
+              className={`px-6 py-3 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center space-x-2 shadow-md hover:shadow-lg font-medium`}
+              style={{
+                backgroundColor: PRIMARY_COLOR,
+                color: "#fff",
+                ...(isOfficerChat ? {} : {}),
+              }}
+              onMouseOver={e => {
+                e.currentTarget.style.backgroundColor = PRIMARY_COLOR_DARK;
+              }}
+              onMouseOut={e => {
+                e.currentTarget.style.backgroundColor = PRIMARY_COLOR;
+              }}
             >
               <Send className="w-4 h-4" />
               <span>ส่ง</span>
@@ -823,8 +868,8 @@ export default function ChatBot() {
             </div>
             {smartBookingData ? (
               <div className="space-y-5">
-                <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-200">
-                  <div className="text-sm text-emerald-800 space-y-2">
+                <div className="p-4 rounded-xl border" style={{ backgroundColor: PRIMARY_COLOR_LIGHT, borderColor: PRIMARY_COLOR }}>
+                  <div className="text-sm" style={{ color: PRIMARY_COLOR }}>
                     <div className="text-center mb-2">
                       <span className="font-semibold">
                         บริการที่แนะนำสำหรับคุณ
@@ -858,7 +903,8 @@ export default function ChatBot() {
                   <select
                     value={selectedDistrict}
                     onChange={(e) => handleDistrictChange(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white transition-all duration-200"
+                    className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 ${PRIMARY_COLOR_RING} bg-white transition-all duration-200`}
+                    style={{ borderColor: PRIMARY_COLOR }}
                   >
                     <option value="">เลือกเขต</option>
                     {districts.map((district) => (
@@ -877,7 +923,8 @@ export default function ChatBot() {
                     value={selectedService}
                     onChange={(e) => handleServiceChange(e.target.value)}
                     disabled={!selectedDistrict}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 disabled:opacity-50 disabled:bg-gray-50 bg-white transition-all duration-200"
+                    className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 ${PRIMARY_COLOR_RING} disabled:opacity-50 disabled:bg-gray-50 bg-white transition-all duration-200`}
+                    style={{ borderColor: PRIMARY_COLOR }}
                   >
                     <option value="">เลือกบริการ</option>
                     {services.map((service) => (
@@ -898,7 +945,18 @@ export default function ChatBot() {
                         <button
                           key={queue.time}
                           onClick={() => handleQueueSelection(queue)}
-                          className="p-3 border border-gray-300 rounded-xl hover:border-emerald-600 hover:bg-emerald-600 hover:text-white transition-all duration-200 text-sm font-medium shadow-sm hover:shadow-md"
+                          className={`p-3 border rounded-xl transition-all duration-200 text-sm font-medium shadow-sm hover:shadow-md`}
+                          style={{
+                            borderColor: PRIMARY_COLOR,
+                          }}
+                          onMouseOver={e => {
+                            e.currentTarget.style.backgroundColor = PRIMARY_COLOR;
+                            e.currentTarget.style.color = "#fff";
+                          }}
+                          onMouseOut={e => {
+                            e.currentTarget.style.backgroundColor = "";
+                            e.currentTarget.style.color = "";
+                          }}
                         >
                           {queue.display}
                         </button>
@@ -930,7 +988,8 @@ export default function ChatBot() {
                   <select
                     value={selectedDistrict}
                     onChange={(e) => handleDistrictChange(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white transition-all duration-200"
+                    className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 ${PRIMARY_COLOR_RING} bg-white transition-all duration-200`}
+                    style={{ borderColor: PRIMARY_COLOR }}
                   >
                     <option value="">เลือกเขต</option>
                     {districts.map((district) => (
@@ -949,7 +1008,8 @@ export default function ChatBot() {
                     value={selectedService}
                     onChange={(e) => handleServiceChange(e.target.value)}
                     disabled={!selectedDistrict}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 disabled:opacity-50 disabled:bg-gray-50 bg-white transition-all duration-200"
+                    className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 ${PRIMARY_COLOR_RING} disabled:opacity-50 disabled:bg-gray-50 bg-white transition-all duration-200`}
+                    style={{ borderColor: PRIMARY_COLOR }}
                   >
                     <option value="">เลือกบริการ</option>
                     {services.map((service) => (
@@ -970,7 +1030,18 @@ export default function ChatBot() {
                         <button
                           key={queue.time}
                           onClick={() => handleQueueSelection(queue)}
-                          className="p-3 border border-gray-300 rounded-xl hover:border-emerald-600 hover:bg-emerald-600 hover:text-white transition-all duration-200 text-sm font-medium shadow-sm hover:shadow-md"
+                          className={`p-3 border rounded-xl transition-all duration-200 text-sm font-medium shadow-sm hover:shadow-md`}
+                          style={{
+                            borderColor: PRIMARY_COLOR,
+                          }}
+                          onMouseOver={e => {
+                            e.currentTarget.style.backgroundColor = PRIMARY_COLOR;
+                            e.currentTarget.style.color = "#fff";
+                          }}
+                          onMouseOut={e => {
+                            e.currentTarget.style.backgroundColor = "";
+                            e.currentTarget.style.color = "";
+                          }}
                         >
                           {queue.display}
                         </button>
@@ -1014,7 +1085,8 @@ export default function ChatBot() {
                       citizen_name: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 transition-all duration-200"
+                  className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 ${PRIMARY_COLOR_RING} transition-all duration-200`}
+                  style={{ borderColor: PRIMARY_COLOR }}
                 />
               </div>
               <div>
@@ -1031,7 +1103,8 @@ export default function ChatBot() {
                       citizen_phone: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 transition-all duration-200"
+                  className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 ${PRIMARY_COLOR_RING} transition-all duration-200`}
+                  style={{ borderColor: PRIMARY_COLOR }}
                 />
               </div>
               <div>
@@ -1047,7 +1120,8 @@ export default function ChatBot() {
                       citizen_email: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 transition-all duration-200"
+                  className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 ${PRIMARY_COLOR_RING} transition-all duration-200`}
+                  style={{ borderColor: PRIMARY_COLOR }}
                 />
               </div>
               <div>
@@ -1060,20 +1134,21 @@ export default function ChatBot() {
                     setBookingData({ ...bookingData, notes: e.target.value })
                   }
                   rows={3}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 transition-all duration-200"
+                  className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 ${PRIMARY_COLOR_RING} transition-all duration-200`}
+                  style={{ borderColor: PRIMARY_COLOR }}
                 />
               </div>
               <div className="bg-gray-50 p-4 rounded-xl border">
                 <div className="text-sm text-gray-600 space-y-1">
                   <div className="flex justify-between">
                     <span>เวลาที่เลือก:</span>
-                    <span className="font-semibold text-emerald-600">
+                    <span className="font-semibold" style={{ color: PRIMARY_COLOR }}>
                       {selectedQueue?.display}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span>วันที่:</span>
-                    <span className="font-semibold text-emerald-600">
+                    <span className="font-semibold" style={{ color: PRIMARY_COLOR }}>
                       {new Date().toLocaleDateString("th-TH")}
                     </span>
                   </div>
@@ -1081,13 +1156,13 @@ export default function ChatBot() {
                     <>
                       <div className="flex justify-between">
                         <span>บริการ:</span>
-                        <span className="font-semibold text-emerald-600">
+                        <span className="font-semibold" style={{ color: PRIMARY_COLOR }}>
                           {smartBookingData.service_name}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span>เขต:</span>
-                        <span className="font-semibold text-emerald-600">
+                        <span className="font-semibold" style={{ color: PRIMARY_COLOR }}>
                           {smartBookingData.district_name}
                         </span>
                       </div>
@@ -1105,7 +1180,14 @@ export default function ChatBot() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 bg-emerald-600 text-white px-4 py-3 rounded-xl hover:bg-emerald-700 transition-all duration-200 shadow-md hover:shadow-lg font-medium"
+                  className={`flex-1 text-white px-4 py-3 rounded-xl transition-all duration-200 shadow-md hover:shadow-lg font-medium`}
+                  style={{ backgroundColor: PRIMARY_COLOR }}
+                  onMouseOver={e => {
+                    e.currentTarget.style.backgroundColor = PRIMARY_COLOR_DARK;
+                  }}
+                  onMouseOut={e => {
+                    e.currentTarget.style.backgroundColor = PRIMARY_COLOR;
+                  }}
                 >
                   จองคิว
                 </button>
@@ -1120,15 +1202,15 @@ export default function ChatBot() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
             <div className="text-center">
-              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle className="w-10 h-10 text-emerald-600" />
+              <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: PRIMARY_COLOR_LIGHT }}>
+                <CheckCircle className="w-10 h-10" style={{ color: PRIMARY_COLOR }} />
               </div>
               <h3 className="text-xl font-bold text-gray-800 mb-2">
                 จองคิวสำเร็จ!
               </h3>
               <p className="text-gray-600 mb-6">คุณได้รับหมายเลขคิว</p>
               <div className="bg-gray-50 p-5 rounded-xl mb-6 border">
-                <div className="text-3xl font-bold text-emerald-600 mb-3">
+                <div className="text-3xl font-bold mb-3" style={{ color: PRIMARY_COLOR }}>
                   {bookedQueue.queue_number}
                 </div>
                 <div className="space-y-2 text-sm text-gray-600">
@@ -1180,7 +1262,14 @@ export default function ChatBot() {
               )}
               <button
                 onClick={handleSuccessClose}
-                className="w-full bg-emerald-600 text-white px-4 py-3 rounded-xl hover:bg-emerald-700 transition-all duration-200 shadow-md hover:shadow-lg font-medium"
+                className={`w-full text-white px-4 py-3 rounded-xl transition-all duration-200 shadow-md hover:shadow-lg font-medium`}
+                style={{ backgroundColor: PRIMARY_COLOR }}
+                onMouseOver={e => {
+                  e.currentTarget.style.backgroundColor = PRIMARY_COLOR_DARK;
+                }}
+                onMouseOut={e => {
+                  e.currentTarget.style.backgroundColor = PRIMARY_COLOR;
+                }}
               >
                 ปิด
               </button>
@@ -1206,7 +1295,7 @@ export default function ChatBot() {
             </div>
             <div className="text-center">
               <div className="bg-gray-50 p-5 rounded-xl mb-6 border">
-                <div className="text-3xl font-bold text-emerald-600 mb-3">
+                <div className="text-3xl font-bold mb-3" style={{ color: PRIMARY_COLOR }}>
                   {bookedQueue.queue_number}
                 </div>
                 <div className="space-y-2 text-sm text-gray-600">
@@ -1293,7 +1382,14 @@ export default function ChatBot() {
               )}
               <button
                 onClick={() => setShowQueueStatus(false)}
-                className="w-full bg-emerald-600 text-white px-4 py-3 rounded-xl hover:bg-emerald-700 transition-all duration-200 shadow-md hover:shadow-lg font-medium"
+                className={`w-full text-white px-4 py-3 rounded-xl transition-all duration-200 shadow-md hover:shadow-lg font-medium`}
+                style={{ backgroundColor: PRIMARY_COLOR }}
+                onMouseOver={e => {
+                  e.currentTarget.style.backgroundColor = PRIMARY_COLOR_DARK;
+                }}
+                onMouseOut={e => {
+                  e.currentTarget.style.backgroundColor = PRIMARY_COLOR;
+                }}
               >
                 ปิด
               </button>
